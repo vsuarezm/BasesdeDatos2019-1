@@ -1,0 +1,134 @@
+-- MySQL Workbench Forward Engineering
+
+SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
+SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
+SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+
+-- -----------------------------------------------------
+-- Schema mydb
+-- -----------------------------------------------------
+
+-- -----------------------------------------------------
+-- Schema mydb
+-- -----------------------------------------------------
+CREATE SCHEMA IF NOT EXISTS `mydb` DEFAULT CHARACTER SET utf8 ;
+USE `mydb` ;
+
+-- -----------------------------------------------------
+-- Table `mydb`.`Jugadores`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mydb`.`Jugadores` (
+  `idJugador` INT NOT NULL,
+  `nombre` VARCHAR(45) NULL,
+  `posición` VARCHAR(45) NULL,
+  `fecha_nto` DATE NULL,
+  PRIMARY KEY (`idJugador`))
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `mydb`.`Equipos`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mydb`.`Equipos` (
+  `idEquipo` INT NOT NULL,
+  `año_fundación` INT NULL,
+  `idEstadio` INT NULL,
+  `ciudad` VARCHAR(45) NULL,
+  PRIMARY KEY (`idEquipo`))
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `mydb`.`Estadios`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mydb`.`Estadios` (
+  `idEstadio` INT NOT NULL,
+  `nombre` VARCHAR(45) NULL,
+  `capacidad` INT NULL,
+  `ciudad` VARCHAR(45) NULL,
+  PRIMARY KEY (`idEstadio`))
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `mydb`.`Partidos`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mydb`.`Partidos` (
+  `idPartido` INT NOT NULL,
+  `fecha` DATE NULL,
+  `idEquipoCasa` INT NULL,
+  `idEquipoVisita` INT NULL,
+  `idEstadio` INT NULL,
+  `golesCasa` INT NULL,
+  `golesVisita` INT NULL,
+  PRIMARY KEY (`idPartido`),
+  INDEX `idEquipo_idx` (`idEquipoCasa` ASC, `idEquipoVisita` ASC) VISIBLE,
+  INDEX `idEstadio_idx` (`idEstadio` ASC) VISIBLE,
+  CONSTRAINT `idEquipoCasa`
+    FOREIGN KEY (`idEquipoCasa`)
+    REFERENCES `mydb`.`Equipos` (`idEquipo`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `idEquipoVisita`
+    FOREIGN KEY (`idEquipoVisita`)
+    REFERENCES `mydb`.`Equipos` (`idEquipo`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `idEstadio`
+    FOREIGN KEY (`idEstadio`)
+    REFERENCES `mydb`.`Estadios` (`idEstadio`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `mydb`.`Goles`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mydb`.`Goles` (
+  `minuto` INT NULL,
+  `idPartido` INT NOT NULL,
+  `idJugador` INT NOT NULL,
+  `descripción` VARCHAR(45) NULL,
+  INDEX `idJugador_idx` (`idJugador` ASC) VISIBLE,
+  INDEX `idPartido_idx` (`idPartido` ASC) VISIBLE,
+  PRIMARY KEY (`idPartido`, `idJugador`),
+  CONSTRAINT `idJugador`
+    FOREIGN KEY (`idJugador`)
+    REFERENCES `mydb`.`Jugadores` (`idJugador`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `idPartido`
+    FOREIGN KEY (`idPartido`)
+    REFERENCES `mydb`.`Partidos` (`idPartido`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `mydb`.`JugadoresXEquipo`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mydb`.`JugadoresXEquipo` (
+  `idJugador` INT NOT NULL,
+  `idEquipo` INT NOT NULL,
+  `fechaInicial` DATE NULL,
+  `fechaFinal` DATE NULL,
+  PRIMARY KEY (`idJugador`, `idEquipo`),
+  INDEX `idEquipo_idx` (`idEquipo` ASC) VISIBLE,
+  CONSTRAINT `idJugadorx`
+    FOREIGN KEY (`idJugador`)
+    REFERENCES `mydb`.`Jugadores` (`idJugador`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `idEquipo`
+    FOREIGN KEY (`idEquipo`)
+    REFERENCES `mydb`.`Equipos` (`idEquipo`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+SET SQL_MODE=@OLD_SQL_MODE;
+SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
+SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
