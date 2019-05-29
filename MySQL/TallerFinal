@@ -1,0 +1,192 @@
+/*
+1.	 Creación de funciones
+*/
+/*
+	a.	El nombre del equipo local, seguido del número de goles marcados, 
+	seguido del nombre del equipo visitante, seguido del número de goles marcado de cada partido
+*/
+DELIMITER $$
+CREATE FUNCTION `PartidosGoles`(ID int)
+RETURNS varchar(50)
+BEGIN
+	declare GolesC int;
+    declare GolesV int;
+    declare EquipoC Varchar(20);
+    declare EquipoV Varchar(20);
+    declare Golesvisi int;
+    declare GolesCasa int;
+	declare CadaPartido int;
+    declare Total Varchar(50);
+	select id_equipo_casa, goles_casa,id_equipo_visita, goles_visit
+        into EquipoC,GolesC,EquipoV,GolesV
+        from Partidos
+        where ID = idPartidos;
+	
+	select sum(goles_casa)
+		into GolesCasa
+		from Partidos
+		where (EquipoV = id_equipo_casa);
+	select sum(goles_visit)
+		into GolesVisi
+		from Partidos
+		where (EquipoV = id_equipo_visita);
+	select C.Nombre, V.Nombre
+		into EquipoC,EquipoV
+		from Equipos C,Equipos V
+        where EquipoC =	C.id_equipo and EquipoV = V.id_equipo;
+    if GolesCasa is null then
+		set GolesCasa = 0;
+	end if;
+    if GolesCasa is null then
+		set GolesVisi = 0;
+	end if;
+    
+    set CadaPartido= GolesCasa + Golesvisi;
+	set Total=Concat(EquipoC,": ",GolesC,"  ;  ",EquipoV,": ",GolesV,"(",CadaPartido,")");
+RETURN Total;
+END $$
+
+
+
+/*
+	b.	Hacer los cambios necesarios en el modelo, de modo que se puede crear una función que retorne los siguiente:
+		i.	Dado el id de un jugador, retornar el nombre del estadio en donde mas ha jugador partidos.
+*/
+DELIMITER $$
+CREATE FUNCTION `datosPartido`(id int)
+RETURNS varchar(100)
+BEGIN
+  DECLARE salida VARCHAR(100); 
+  DECLARE nombreCasa VARCHAR(15);
+  DECLARE golesCasa INT;
+  DECLARE nombreVisi VARCHAR(15);
+  DECLARE golesVisi INT;
+  
+  select e.Nombre, p.goles_casa into nombreCasa, golesCasa
+  from Equipos e, Partidos p
+  where p.id_equipo_casa = e.id_equipo and id = p.idPartidos;
+  
+  select e.Nombre, p.goles_visit into nombreVisi, golesVisi
+  from Equipos e, Partidos p
+  where p.id_equipo_visita = e.id_equipo and id = p.idPartidos;
+  
+  set salida = CONCAT("Nombre equipo casa: ",nombreCasa,". Goles: ",golesCasa,". Nombre equipo visitante: ",nombreVisi,". Goles: ",golesVisi);
+  
+  RETURN salida;
+END $$
+
+
+/*
+	2.	Procedimiento
+*/
+/*
+		a.	Modificar el modelo de modo que se pueda construir los siguientes procedimientos: 
+			i.	Crear un procedimietno que poble una nueva tabla en la cual se almacenarán los equipos que están 
+				participando con la posición que ocupan con base en los partidos ganados, empatados y perdidos.
+*/
+DELIMITER $$
+CREATE PROCEDURE `process`()
+BEGIN
+	declare v_finished int default 0;
+    declare contador int;
+    declare ID  varchar(50);
+    declare golesJU int;
+
+	declare Goles_Mas cursor for 
+	select distinct count(1),g.id_jugador
+	from Goles g
+    group by g.id_jugador
+    order by count(1) desc;
+	
+	DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_finished = 1;
+    truncate ranking;
+	set contador = 0;
+	open  Goles_Mas;
+	bucle: loop
+    IF v_finished = 1 THEN 
+	 LEAVE bucle;
+	 END IF;
+	fetch Goles_Mas into  golesJU,ID;
+	set contador = contador + 1;
+	select	Nombre
+    into ID
+	from Jugadores
+    where ID =idJugadores;
+    insert into ranking values(contador,ID,golesJU);
+	END LOOP bucle;
+	close Goles_Mas;
+END $$
+
+/*
+			ii.	Crear un procedimiento que con base en los goles marcados, se llene una tabla en la que se almacerá
+				el id del jugador y una posición, en la posición 1 el jugador con mas goles marcados, en la posición
+				2 el segundo jugador con mas goles marcados y así sucesivamente.
+
+*/
+
+
+
+/*
+	3.	Triggers
+*/
+/*
+	a.	Crear uno o varios triggers que permita guardar la auditoria de todos los movimientos hechos en 
+		la tabla goles, la fecha en la que se hicieron y el usuario por el cual feron hechos.
+*/
+DELIMITER $$
+CREATE TRIGGER `goles_BEFORE_INSERT` BEFORE INSERT ON `goles` 
+FOR EACH ROW
+BEGIN
+	declare Visitantes varchar(40);
+	declare Casa varchar(40);
+	declare Equipo varchar(40);
+		select Equipos_Id_Equipos_Casa, Equipos_Id_Equipos_Visitantes
+		into Casa,Visitantes
+		from partidos
+		where new.Partidos_Id_Partido = Id_Partido;
+		
+		select Equipos_Id_Equipos
+		into Equipo
+		from jugadoresxequipo
+		where new.Jugadores_Id_Jugadores = Jugadores_Id_Jugadores and Fecha_Final is  null;
+		
+		if Visitantes = Equipo then 
+			update partidos jg
+			set jg.Goles_Visitantes = Goles_Visitantes +1
+			where new.Partidos_Id_Partido = Id_Partido;
+			end if;
+			
+		if Casa = Equipo then 
+			update partidos jg
+			set jg.Goles_Casa = Goles_Casa +1
+			where new.Partidos_Id_Partido = Id_Partido;
+			end if;
+END $$
+
+/*
+	b.	Crer uno  o varios trigger que cada vez que se anote un gol, se actualice el marcador del 
+		partido correspondiente.
+*/
+DELIMITER $$
+CREATE  TRIGGER `goles_actualizados` BEFORE UPDATE ON `goles` 
+FOR EACH ROW 
+BEGIN
+if old.minuto <> new.minuto then
+		insert into cambios_Goles
+        values ("Minutos",CAST(old.Minutos AS CHAR),CAST(new.Minutos AS CHAR),curtime(), user());
+	end if;
+    if old.Descripcion <> new.Descripcion then
+		insert into cambios_Goles
+        values ("Descripcion",old.Descripcion,new.Descripcion,curtime(), user());
+	end if;
+    
+    if old.Partidos_Id_Partido <> new.Partidos_Id_Partido then
+		insert into cambios_Goles
+        values ("Partidos_Id_Partido",CAST(old.Partidos_Id_Partido AS char),CAST(new.Partidos_Id_Partido AS CHAR),curtime(), user());
+	end if;
+    if old.Jugadores_Id_Jugadores <> new.Jugadores_Id_Jugadores then
+		insert into cambios_Goles
+        values ("Jugadores_Id_Jugadores",CAST(old.Jugadores_Id_Jugadores AS char),CAST(new.Jugadores_Id_Jugadores AS CHAR),curtime(), user());
+	end if;
+    
+END $$
